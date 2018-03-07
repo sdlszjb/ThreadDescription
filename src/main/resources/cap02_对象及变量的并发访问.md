@@ -171,3 +171,191 @@ synchronized同步方法，或者synchronized(this)同步代码块分别有两�
     - 当多个线程同时执行synchronized（x){}同步代码块时呈现同步效果。
     - 当其他线程执行x对象中的synchronized同步方法时呈现同步效果。
     - 当其他线程执行x对象方法里面的synchronized(this)代码块时也呈现同步效果。
+- 静态同步synchronized方法与synchronized(class)代码块
+若synchronized用在static静态方法上，那就是对当前*.java文件对象的class类进行持锁。
+> 如果你能明白什么是静态方法，很容易理解为什么是对当前的class持锁，而不是像之前，对某一个对象持锁。
+```java
+public class Pag01_Static_Class {
+
+    synchronized public static void staticMethod1() {
+        try {
+            System.out.println(Thread.currentThread().getName() + " method1 start time: " + System.currentTimeMillis());
+            Thread.sleep(3000);
+            System.out.println(Thread.currentThread().getName() + " method1 start time: " + System.currentTimeMillis());
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    synchronized public static void staticMethod2() {
+        try {
+            System.out.println(Thread.currentThread().getName() + " method2 start time: " + System.currentTimeMillis());
+            Thread.sleep(3000);
+            System.out.println(Thread.currentThread().getName() + " method2 start time: " + System.currentTimeMillis());
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    synchronized public void method3() {
+        try {
+            System.out.println(Thread.currentThread().getName() + " method3 start time: " + System.currentTimeMillis());
+            Thread.sleep(3000);
+            System.out.println(Thread.currentThread().getName() + " method3 start time: " + System.currentTimeMillis());
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+/**
+ *
+ * synchronized同步 静态方法
+ *
+ * @author 庄壮壮 Administrator
+ * @since 2018-03-07 19:59
+ */
+public class Pag01_Synchronized_03 {
+
+    @Test
+    public void testClient() throws InterruptedException {
+        Thread thread1 = new Thread(new MyRunnable1());
+        Thread thread2 = new Thread(new MyRunnable2());
+        Thread thread3 = new Thread(new MyRunnable3(new Pag01_Static_Class()));
+
+        thread1.setName("thread1");
+        thread2.setName("thread2");
+        thread3.setName("thread3");
+
+        thread1.start();
+        thread2.start();
+        thread3.start();
+
+        Thread.sleep(7000);
+    }
+
+    private class MyRunnable1 implements Runnable {
+
+        @Override
+        public void run() {
+            Pag01_Static_Class.staticMethod1();
+        }
+    }
+
+    private class MyRunnable2 implements Runnable {
+        @Override
+        public void run() {
+            Pag01_Static_Class.staticMethod2();
+        }
+    }
+
+    private class MyRunnable3 implements Runnable {
+
+        Pag01_Static_Class cls;
+
+        public MyRunnable3(Pag01_Static_Class cls) {
+            this.cls = cls;
+        }
+
+        @Override
+        public void run() {
+            cls.method3();
+        }
+    }
+}
+```
+- 数据类型String的常量池特性
+由于String本身特性，通常不使用String作为锁对象。
+
+- 多线程的死锁
+```java
+/**
+ * 测试 死锁
+ * @author 庄壮壮 Administrator
+ * @since 2018-03-07 21:55
+ */
+public class Pag02_Dead_Lock {
+
+    @Test
+    public void testClient() throws InterruptedException {
+        MyRunnable runnable = new MyRunnable();
+
+        runnable.setFlag(true);
+        Thread thread1 = new Thread(runnable);
+
+        thread1.setName("thread1");
+
+        thread1.start();
+        Thread.sleep(500);
+
+
+
+        runnable.setFlag(false);
+        Thread thread2 = new Thread(runnable);
+        thread2.setName("thread2");
+        thread2.start();
+
+        Thread.sleep(100000);
+
+
+    }
+
+    private class MyRunnable implements Runnable {
+
+        private Object lock1 = new Object();
+        private Object lock2 = new Object();
+
+        private boolean flag = false;
+
+        public void setFlag(boolean flag) {
+            this.flag = flag;
+        }
+
+        @Override
+        public void run() {
+            if (flag) {
+                synchronized (lock1) {
+                    try {
+                        System.out.println(Thread.currentThread().getName() + " lock1 begin at: " + System.currentTimeMillis());
+                        Thread.sleep(3000);
+                        System.out.println(Thread.currentThread().getName() + " lock1 waiting for lock2 at: " + System.currentTimeMillis());
+                        synchronized (lock2) {
+                            System.out.println(Thread.currentThread().getName() + " lock1 thread get lock2");
+                        }
+                        System.out.println(Thread.currentThread().getName() + " lock1 end at: " + System.currentTimeMillis());
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            } else {
+
+                synchronized (lock2) {
+                    try {
+                        System.out.println(Thread.currentThread().getName() + " lock2 begin at: " + System.currentTimeMillis());
+                        Thread.sleep(3000);
+                        System.out.println(Thread.currentThread().getName() + " lock2 waiting for lock1 at: " + System.currentTimeMillis());
+                        synchronized (lock1) {
+                            System.out.println(Thread.currentThread().getName() + " lock2 thread get lock1");
+                        }
+                        System.out.println(Thread.currentThread().getName() + " lock2 end at: " + System.currentTimeMillis());
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+    }
+}
+```
+> lsk$ jps // 查看当前Java线程
+> lsk$ jstack // 查看线程，可查看死锁。
+
+- 内置类与静态内置类
+// TODO
+
+- 锁对象的改变
+通俗来说，如果引用对应的对象改变了，锁就改变了。
+比如int a = 10，改成 a = 20，对应的对象改变了，锁也就失效了。
+比如List array = new ArrayList(); arrar.add(1)，是不影响的，因为引用对应的对象地址并没有改变
+
+## volatile关键字
