@@ -359,3 +359,101 @@ public class Pag02_Dead_Lock {
 比如List array = new ArrayList(); arrar.add(1)，是不影响的，因为引用对应的对象地址并没有改变
 
 ## volatile关键字
+volatile关键字的作用是强制从公共堆栈中，取得变量的值，而不是从线程私有数据栈中取得变量的值。
+```java
+package cn.kisslinux.cap_02.mod_02;
+
+import org.junit.Test;
+
+/**
+ * while循环此时是停止不掉的，
+ * 因为在thread内部，变量读取的是线程内部的堆栈。
+ * 
+ * 使用volatile关键字后，告诉线程，强制从公共堆栈中读取变量的值。因此，此时可以停止死循环。
+ *
+ * @author 庄壮壮 Administrator
+ * @since 2018-03-10 10:01
+ */
+public class Pag01_Volatile {
+    @Test
+    public void withoutVolatileTest() throws InterruptedException {
+        RunThreadWithoutVolatile threadWithoutVolatile = new RunThreadWithoutVolatile();
+        threadWithoutVolatile.start();
+        Thread.sleep(1000);
+        threadWithoutVolatile.setRunning(false);
+        System.out.println("已经赋值为" + threadWithoutVolatile.isRunning());
+
+        Thread.sleep(10000);
+    }
+
+    private class RunThreadWithoutVolatile extends Thread {
+        private boolean running = true;
+
+        public boolean isRunning() {
+            return running;
+        }
+
+        public void setRunning(boolean running) {
+            this.running = running;
+        }
+
+        @Override
+        public void run() {
+            System.out.println("进入Run...");
+            while (isRunning()) {
+            }
+            System.out.println("线程被停止了...");
+        }
+    }
+
+    @Test
+    public void withVolatileTest() throws InterruptedException {
+        RunThreadWithVolatile threadWithVolatile = new RunThreadWithVolatile();
+        threadWithVolatile.start();
+        Thread.sleep(1000);
+        threadWithVolatile.setRunning(false);
+        System.out.println("已经赋值为" + threadWithVolatile.isRunning());
+
+        Thread.sleep(10000);
+    }
+
+    private class RunThreadWithVolatile extends Thread {
+        volatile private boolean running = true;
+
+        public boolean isRunning() {
+            return running;
+        }
+
+        public void setRunning(boolean running) {
+            this.running = running;
+        }
+
+        @Override
+        public void run() {
+            System.out.println("进入Run...");
+            while (isRunning()) {
+            }
+            System.out.println("线程被停止了...");
+        }
+    }
+}
+
+```
+- volatile同synchronized比较
+  - volatile是线程同步的轻量级实现，所以性能更好一些，但只能修饰变量。而synchronized可以修饰方法、代码块，使用比率更高。
+  - 多线程访问volatile不会发生阻塞，而synchronized会发生阻塞。
+  - volatile能保证数据可见性，但不能保证原子性。synchronized两者都可保证。即，volatile并不能保证线程安全。
+```text
+  read         | 主存复制变量到当前线程工作内存
+    |          |
+  load   |
+    |    | 非
+  use    | 原  | 执行代码，改变共享变量
+    |    | 子  | 
+  asign  | 性
+    |    |
+  store        | 用工作内存数据刷新主存对应变量的值
+    |          |
+  write
+```
+  
