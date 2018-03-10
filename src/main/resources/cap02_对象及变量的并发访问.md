@@ -95,7 +95,7 @@ public class Pag01_Synchronized_01 {
 > synchronized关键字实际上是锁住的当前对象，可以理解为synchronized(this)
 
 ## synchronized同步语句块
-### synchronized方法的弊端
+- synchronized方法的弊端
 A线程执行一个长时间任务，与它同步的B线程必须要等待，这种情况下可以使用synchronized同步语句块来解决。
 - synchronized同步代码块的使用
 ```java
@@ -446,14 +446,18 @@ public class Pag01_Volatile {
 ```text
   read         | 主存复制变量到当前线程工作内存
     |          |
-  load   |
+  load   |     |
     |    | 非
   use    | 原  | 执行代码，改变共享变量
     |    | 子  | 
-  asign  | 性
+  asign  | 性  |
     |    |
   store        | 用工作内存数据刷新主存对应变量的值
     |          |
-  write
+  write        |
 ```
-  
+
+- 使用原子类进行i++操作
+AtomicInteger可实现原子操作
+  - 原子类也并不完全安全，因为方法与方法间的调用不是原子的。（PS. 我觉得作者说这一点就是废话，原子类只能保证自身的操作是原子的，但你的业务操作肯定不是原子操作的啊！)
+- synchronized代码块具有volatile同步的功能
