@@ -513,3 +513,4 @@ Push操作中的：t2线程处于wait状态！
 Process finished with exit code 1
 
 ```
+> 修改生产者/消费者的Sleep数值，可以模拟供大于求/供不应求的情况。上面的例子是供大于求状态，push一直处于wait状态。
