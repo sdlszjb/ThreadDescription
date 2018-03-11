@@ -115,6 +115,10 @@ import java.util.List;
  * 
  * 当notifyAll之后，两者同时进入线程，因此产生逻辑错误。
  * 
+ * 解决这个问题，就是把 wait 所在的线程中的if换成while。
+ * 正常教科书中的案例均是以while为判断符号的。
+ * 目的是，即使被唤醒了，仍要再次检查一遍，是否满足被唤醒的条件，以防发生脏数据的现象。
+ * 
  * @author 庄壮壮 Administrator
  * @since 2018-03-11 13:12
  */
@@ -226,4 +230,286 @@ class ValueObject {
         return data.size();
     }
 }
+```
+2. **生产者/消费者**
+```java
+package cn.kisslinux.cap_03.mod_01;
+
+import org.junit.Test;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * @author 庄壮壮 Administrator
+ * @since 2018-03-11 17:07
+ */
+public class Pag04_Producer_consumer_02 {
+    @Test
+    public void testClient() throws InterruptedException {
+        ProductStack stack = new ProductStack();
+        Producer producer = new Producer(stack);
+        Consumer consumer = new Consumer(stack);
+
+        Thread t1 = new Thread(producer);
+        Thread t2 = new Thread(producer);
+        Thread t3 = new Thread(producer);
+        Thread t4 = new Thread(producer);
+        Thread t5 = new Thread(producer);
+
+        t1.setName("t1");
+        t2.setName("t2");
+        t3.setName("t3");
+        t4.setName("t4");
+        t5.setName("t5");
+
+        t1.start();
+        t2.start();
+        t3.start();
+        t4.start();
+        t5.start();
+
+        Thread c1 = new Thread(consumer);
+        Thread c2 = new Thread(consumer);
+
+        c1.setName("c1");
+        c2.setName("c2");
+
+        c1.start();
+        c2.start();
+
+        Thread.sleep(50000);
+    }
+}
+
+/**
+ * 产品类
+ */
+class Product {
+    private String id;
+
+    public Product(String id) {
+        this.id = id;
+    }
+
+    @Override
+    public String toString() {
+        return id;
+    }
+}
+
+/**
+ * 产品缓冲池
+ */
+class ProductStack {
+    public static final int MAX_SIZE = 10;
+    private int index = 0;
+    private List<Product> pool = new ArrayList<>();
+
+    synchronized public void push(Product product) {
+        try {
+            while (index == MAX_SIZE) { // 如果已经达到池的最大容量，那么暂停向里面放入产品
+                System.out.println("Push操作中的：" + Thread.currentThread().getName() + "线程处于wait状态！");
+                this.wait();
+                System.out.println("Push操作中的：" + Thread.currentThread().getName() + "线程处于被唤醒了！");
+            }
+            pool.add(product);
+            index++;
+            System.out.println("Add project. Now size is: " + pool.size());
+            this.notify(); // 通知其他线程，当前的池已经放入了新的产品
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    synchronized public Product pop() {
+        try {
+            while (index == 0) {
+                System.out.println("Pop操作中的：" + Thread.currentThread().getName() + "线程处于wait状态！");
+                this.wait(); // 如果池中已经木有产品，等待
+                System.out.println("Pop操作中的：" + Thread.currentThread().getName() + "线程处于被唤醒了！");
+            }
+            index--;
+            Product product = pool.remove(index);
+            pool.remove(product);
+            System.out.println("Del project. Now size is: " + pool.size());
+            this.notify(); // 如果池中有产品，那么取出一个产品，并告诉其他线程，我已经取出一个产品了。
+            return product;
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+}
+
+/**
+ * 生产者
+ */
+class Producer implements Runnable {
+
+    private ProductStack stack;
+
+    public Producer(ProductStack stack) {
+        this.stack = stack;
+    }
+
+    @Override
+    public void run() {
+        while (true) {
+            Product product = new Product(System.currentTimeMillis() + "");
+            System.out.println(Thread.currentThread().getName() + " P: " + product);
+            stack.push(product);
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+}
+
+/**
+ * 消费者
+ */
+class Consumer implements Runnable {
+    private ProductStack stack;
+
+    public Consumer(ProductStack stack) {
+        this.stack = stack;
+    }
+
+    @Override
+    public void run() {
+        while (true) {
+            Product product = stack.pop();
+            System.out.println(Thread.currentThread().getName() + " C: " + product);
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+}
+
+```
+```text
+F:\DeveloperTools\SDK\jdk1.8.0_131\bin\java -ea -Didea.test.cyclic.buffer.size=1048576 -javaagent:F:\DeveloperTools\JetBrains\ideaIU\lib\idea_rt.jar=10614:F:\DeveloperTools\JetBrains\ideaIU\bin -Dfile.encoding=UTF-8 -classpath F:\DeveloperTools\JetBrains\ideaIU\lib\idea_rt.jar;F:\DeveloperTools\JetBrains\ideaIU\plugins\junit\lib\junit-rt.jar;F:\DeveloperTools\JetBrains\ideaIU\plugins\junit\lib\junit5-rt.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\charsets.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\deploy.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\ext\access-bridge-64.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\ext\cldrdata.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\ext\dnsns.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\ext\jaccess.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\ext\jfxrt.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\ext\localedata.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\ext\nashorn.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\ext\sunec.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\ext\sunjce_provider.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\ext\sunmscapi.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\ext\sunpkcs11.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\ext\zipfs.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\javaws.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\jce.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\jfr.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\jfxswt.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\jsse.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\management-agent.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\plugin.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\resources.jar;F:\DeveloperTools\SDK\jdk1.8.0_131\jre\lib\rt.jar;D:\IdeaProjects\ThreadDescription\target\classes;C:\Users\Administrator\.m2\repository\junit\junit\4.12\junit-4.12.jar;C:\Users\Administrator\.m2\repository\org\hamcrest\hamcrest-core\1.3\hamcrest-core-1.3.jar com.intellij.rt.execution.junit.JUnitStarter -ideVersion5 -junit4 cn.kisslinux.cap_03.mod_01.Pag04_Producer_consumer_02,testClient
+t1 P: 1520774272309
+Add project. Now size is: 1
+t5 P: 1520774272309
+Add project. Now size is: 2
+t4 P: 1520774272310
+Add project. Now size is: 3
+t2 P: 1520774272310
+Add project. Now size is: 4
+Del project. Now size is: 3
+c1 C: 1520774272310
+t3 P: 1520774272310
+Add project. Now size is: 4
+Del project. Now size is: 3
+c2 C: 1520774272310
+t3 P: 1520774272510
+Add project. Now size is: 4
+t2 P: 1520774272510
+Add project. Now size is: 5
+t1 P: 1520774272513
+Add project. Now size is: 6
+t5 P: 1520774272513
+Add project. Now size is: 7
+t4 P: 1520774272513
+Add project. Now size is: 8
+t2 P: 1520774272710
+Add project. Now size is: 9
+t3 P: 1520774272710
+Add project. Now size is: 10
+t4 P: 1520774272713 // 这里不知道是怎么发生的
+t5 P: 1520774272713
+t1 P: 1520774272713
+Push操作中的：t4线程处于wait状态！
+Push操作中的：t1线程处于wait状态！
+Push操作中的：t5线程处于wait状态！
+t2 P: 1520774272910
+Push操作中的：t2线程处于wait状态！
+t3 P: 1520774272910
+Push操作中的：t3线程处于wait状态！
+Del project. Now size is: 9
+c1 C: 1520774272710
+Push操作中的：t4线程处于被唤醒了！
+Add project. Now size is: 10
+Push操作中的：t1线程处于被唤醒了！
+Push操作中的：t1线程处于wait状态！
+Del project. Now size is: 9
+Push操作中的：t5线程处于被唤醒了！
+Add project. Now size is: 10
+c2 C: 1520774272713
+Push操作中的：t2线程处于被唤醒了！
+Push操作中的：t2线程处于wait状态！
+t4 P: 1520774273510
+Push操作中的：t4线程处于wait状态！
+t5 P: 1520774273512
+Push操作中的：t5线程处于wait状态！
+Del project. Now size is: 9
+c1 C: 1520774272713
+Push操作中的：t3线程处于被唤醒了！
+Add project. Now size is: 10
+Push操作中的：t1线程处于被唤醒了！
+Push操作中的：t1线程处于wait状态！
+Del project. Now size is: 9
+c2 C: 1520774272910
+Push操作中的：t2线程处于被唤醒了！
+Add project. Now size is: 10
+Push操作中的：t4线程处于被唤醒了！
+Push操作中的：t4线程处于wait状态！
+t3 P: 1520774274510
+Push操作中的：t3线程处于wait状态！
+t2 P: 1520774274512
+Push操作中的：t2线程处于wait状态！
+Del project. Now size is: 9
+c1 C: 1520774272910
+Push操作中的：t5线程处于被唤醒了！
+Add project. Now size is: 10
+Push操作中的：t1线程处于被唤醒了！
+Push操作中的：t1线程处于wait状态！
+Del project. Now size is: 9
+c2 C: 1520774273512
+Push操作中的：t4线程处于被唤醒了！
+Add project. Now size is: 10
+Push操作中的：t3线程处于被唤醒了！
+Push操作中的：t3线程处于wait状态！
+t5 P: 1520774275510
+Push操作中的：t5线程处于wait状态！
+t4 P: 1520774275512
+Push操作中的：t4线程处于wait状态！
+Del project. Now size is: 9
+c1 C: 1520774273510
+Push操作中的：t2线程处于被唤醒了！
+Add project. Now size is: 10
+Push操作中的：t1线程处于被唤醒了！
+Push操作中的：t1线程处于wait状态！
+Del project. Now size is: 9
+c2 C: 1520774274512
+Push操作中的：t3线程处于被唤醒了！
+Add project. Now size is: 10
+Push操作中的：t5线程处于被唤醒了！
+Push操作中的：t5线程处于wait状态！
+t2 P: 1520774276510
+Push操作中的：t2线程处于wait状态！
+t3 P: 1520774276512
+Push操作中的：t3线程处于wait状态！
+Del project. Now size is: 9
+c1 C: 1520774274510
+Push操作中的：t4线程处于被唤醒了！
+Add project. Now size is: 10
+Push操作中的：t1线程处于被唤醒了！
+Push操作中的：t1线程处于wait状态！
+Del project. Now size is: 9
+c2 C: 1520774275512
+Push操作中的：t5线程处于被唤醒了！
+Add project. Now size is: 10
+Push操作中的：t2线程处于被唤醒了！
+Push操作中的：t2线程处于wait状态！
+
+Process finished with exit code 1
+
 ```
