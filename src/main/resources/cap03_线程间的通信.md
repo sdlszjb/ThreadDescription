@@ -515,7 +515,7 @@ Process finished with exit code 1
 ```
 > 修改生产者/消费者的Sleep数值，可以模拟供大于求/供不应求的情况。上面的例子是供大于求状态，push一直处于wait状态。
 
-3. **通过管道进行线程间的通细**
+- 通过管道进行线程间的通信
   - PipedInputStream/PipedOutputStream
   - PipedReader/PipedWriter
   > 和Socket编程很像啊
@@ -609,7 +609,7 @@ public class Pag01_Pipe {
 }
 ```
 
-4. **example**
+- example
 ```java
 package cn.kisslinux.cap_03.mod_02;
 
@@ -731,4 +731,101 @@ class ThreadB implements Runnable{
     }
 }
 ```
+
+## 方法join的使用
+主线程创建并启动子线程，如果子线程中要进行大量的耗时运算，主线程往往早于子线程结束之前停止。但若主线程要取得这个数据中的值，就用到了join()方法了。
+1. **example**
+```java
+package cn.kisslinux.cap_03.mod_03;
+
+import org.junit.Test;
+
+/**
+ * @author 庄壮壮 Administrator
+ * @since 2018-03-12 21:27
+ */
+public class Pag01_Join {
+    @Test
+    public void testClient() throws InterruptedException {
+        System.out.println("程序开始");
+        Thread thread = new Thread(() -> {
+            try {
+                System.out.println("Thread start.");
+                Thread.sleep(5000);
+                System.out.println("Thread stop.");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+
+        thread.start();
+        thread.join();
+        System.out.println("程序结束");
+    }
+}
+```
+2. **join(long)**
+- 等待long时间，然后自动停止等待
+- 与**sleep(long)的区别
+join(long)内部使用wait(long)实现，是具有释放锁的特点。
+
+## ThreadLocal的使用
+目的实现每一个线程都有自己的共享变量。
+```java
+package cn.kisslinux.cap_03.mod_03;
+
+import org.junit.Test;
+
+/**
+ * @author 庄壮壮 Administrator
+ * @since 2018-03-12 21:35
+ */
+public class Pag02_Thread_Local {
+    @Test
+    public void testClient() throws InterruptedException {
+        Thread a = new ThreadA();
+        a.start();
+        Thread.sleep(2000);
+        Thread b = new ThreadB();
+        b.start();
+
+        Thread.sleep(10000);
+
+    }
+}
+
+class Tools {
+    public static ThreadLocal<Integer> t1 = new ThreadLocal<>();
+}
+
+class ThreadA extends Thread {
+    @Override
+    public void run() {
+        System.out.println("ThreadA set 100.");
+        Tools.t1.set(100);
+        System.out.println("ThreadA red " + Tools.t1.get());
+
+        try {
+            Thread.sleep(50000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+class ThreadB extends Thread {
+    @Override
+    public void run() {
+        System.out.println("ThreadB red " + Tools.t1.get());
+    }
+}
+
+```
+
+- 为避免ThreadLocal默认get为null，可覆写其initialValue()方法。
+
+## 类InheritableThreadLocal的使用
+- 可以在子线程中取得父线程继承下来的值。
+- 通过覆写childValue()方法可实现对父线程继承值的修改。
+
 
