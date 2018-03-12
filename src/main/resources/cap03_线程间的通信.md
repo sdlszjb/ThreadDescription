@@ -514,3 +514,221 @@ Process finished with exit code 1
 
 ```
 > 修改生产者/消费者的Sleep数值，可以模拟供大于求/供不应求的情况。上面的例子是供大于求状态，push一直处于wait状态。
+
+3. **通过管道进行线程间的通细**
+  - PipedInputStream/PipedOutputStream
+  - PipedReader/PipedWriter
+  > 和Socket编程很像啊
+```java
+package cn.kisslinux.cap_03.mod_02;
+
+import org.junit.Test;
+
+import java.io.IOException;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
+
+/**
+ * @author 庄壮壮 Administrator
+ * @since 2018-03-12 19:00
+ */
+public class Pag01_Pipe {
+
+    @Test
+    public void testClient() throws IOException, InterruptedException {
+        PipedInputStream inputStream = new PipedInputStream();
+        PipedOutputStream outputStream = new PipedOutputStream();
+
+        outputStream.connect(inputStream);
+
+        Thread readThread = new Thread(new ReadData(inputStream));
+        Thread writeThread = new Thread(new WriteData(outputStream));
+
+        readThread.setName("ReadThread");
+        writeThread.setName("WriteThread");
+
+        readThread.start();
+        Thread.sleep(2000);
+        writeThread.start();
+
+        Thread.sleep(500000);
+
+    }
+
+    class WriteData implements Runnable {
+
+        private PipedOutputStream outputStream;
+
+        public WriteData(PipedOutputStream outputStream) {
+            this.outputStream = outputStream;
+        }
+
+        @Override
+        public void run() {
+
+            System.out.println("Write: ");
+            try {
+                for (int i=0; i<300; i++) {
+                    String outData = "" + i;
+                    outputStream.write(outData.getBytes());
+                    Thread.sleep(500);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    class ReadData implements Runnable{
+        private PipedInputStream inputStream;
+
+        public ReadData(PipedInputStream inputStream) {
+            this.inputStream = inputStream;
+        }
+
+        @Override
+        public void run() {
+            System.out.println("Read: ");
+            try {
+                byte[] bytes = new byte[20];
+                int length = inputStream.read(bytes);
+                while (length != -1) {
+                    String newData = new String(bytes, 0, length);
+                    System.out.println(newData);
+                    length = inputStream.read(bytes);
+                }
+                System.out.println();
+                inputStream.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+}
+```
+
+4. **example**
+```java
+package cn.kisslinux.cap_03.mod_02;
+
+import org.junit.Test;
+
+/**
+ * 各5各线程，交替打印
+ * 
+ * @author 庄壮壮 Administrator
+ * @since 2018-03-12 21:01
+ */
+public class Pag02_Insert {
+    @Test
+    public void testClient() throws InterruptedException {
+        DBTools dbTools = new DBTools();
+
+        Thread threadA1 = new Thread(new ThreadA(dbTools));
+        Thread threadA2 = new Thread(new ThreadA(dbTools));
+        Thread threadA3 = new Thread(new ThreadA(dbTools));
+        Thread threadA4 = new Thread(new ThreadA(dbTools));
+        Thread threadA5 = new Thread(new ThreadA(dbTools));
+
+        Thread threadB1 = new Thread(new ThreadB(dbTools));
+        Thread threadB2 = new Thread(new ThreadB(dbTools));
+        Thread threadB3 = new Thread(new ThreadB(dbTools));
+        Thread threadB4 = new Thread(new ThreadB(dbTools));
+        Thread threadB5 = new Thread(new ThreadB(dbTools));
+
+        threadA1.setName("A1");
+        threadA2.setName("A2");
+        threadA3.setName("A3");
+        threadA4.setName("A4");
+        threadA5.setName("A5");
+
+        threadB1.setName("B1");
+        threadB2.setName("B2");
+        threadB3.setName("B3");
+        threadB4.setName("B4");
+        threadB5.setName("B5");
+
+        threadA1.start();
+        threadA2.start();
+        threadA3.start();
+        threadA4.start();
+        threadA5.start();
+
+        threadB1.start();
+        threadB2.start();
+        threadB3.start();
+        threadB4.start();
+        threadB5.start();
+
+        Thread.sleep(50000);
+    }
+}
+
+class DBTools {
+    private static final int RUNNING_A = 1;
+    private static final int RUNNING_B = 2;
+
+    volatile private int whoIsWaiting = RUNNING_A;
+
+    synchronized void backupA() {
+        try {
+            while (whoIsWaiting == RUNNING_A) {
+                this.wait();
+            }
+            System.out.println(Thread.currentThread().getName());
+            System.out.println("★★★★★");
+            whoIsWaiting = RUNNING_A;
+            notifyAll();
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    synchronized void backupB() {
+        try {
+            while (whoIsWaiting == RUNNING_B) {
+                this.wait();
+            }
+            System.out.println(Thread.currentThread().getName());
+            System.out.println("☆☆☆☆☆");
+            whoIsWaiting = RUNNING_B;
+            notifyAll();
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+class ThreadA implements Runnable{
+
+    DBTools dbTools;
+
+    public ThreadA(DBTools dbTools) {
+        this.dbTools = dbTools;
+    }
+
+    @Override
+    public void run() {
+        dbTools.backupA();
+    }
+}
+
+class ThreadB implements Runnable{
+
+    DBTools dbTools;
+
+    public ThreadB(DBTools dbTools) {
+        this.dbTools = dbTools;
+    }
+
+    @Override
+    public void run() {
+        dbTools.backupB();
+    }
+}
+```
+
